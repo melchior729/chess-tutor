@@ -640,3 +640,111 @@ body {
 .modal__btn--primary:hover {
   background: #4a7bc9;
 }
+
+/* Phone layout (≤640px): toolbar · board · eval · moves · openings */
+html.layout-phone #app {
+  max-width: 100%;
+  padding: max(0.5rem, env(safe-area-inset-top))
+    max(0.5rem, env(safe-area-inset-right))
+    max(0.5rem, env(safe-area-inset-bottom))
+    max(0.5rem, env(safe-area-inset-left));
+}
+
+html.layout-phone .toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+}
+
+html.layout-phone .toolbar__actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+html.layout-phone .toolbar__btn {
+  font-size: 0.78rem;
+  padding: 0.4rem 0.55rem;
+}
+
+html.layout-phone .toolbar__kbd {
+  display: none;
+}
+
+html.layout-phone .toolbar__hint {
+  flex: none;
+  text-align: start;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+html.layout-phone .board-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+html.layout-phone .board-column {
+  order: 1 !important;
+  width: 100%;
+  max-width: 100%;
+  align-self: center;
+  align-items: center;
+}
+
+html.layout-phone .board-wrap {
+  width: min(100%, calc(100vw - 1rem));
+  max-width: 100%;
+}
+
+html.layout-phone .eval-bar {
+  order: 2 !important;
+  width: 100%;
+  height: 1.75rem !important;
+  max-height: none !important;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+html.layout-phone .eval-bar__fill {
+  top: 0;
+  bottom: 0;
+  height: 100% !important;
+  transition: width 0.15s ease-out;
+}
+
+html.layout-phone .eval-bar__fill--white {
+  left: 0;
+  right: auto;
+  width: 50%;
+  background: linear-gradient(to right, #f5f5f5, #c4c4c4);
+}
+
+html.layout-phone .eval-bar__fill--black {
+  left: auto;
+  right: 0;
+  width: 50%;
+  background: linear-gradient(to left, #111, #333);
+}
+
+html.layout-phone .movelog {
+  order: 3 !important;
+  width: 100%;
+  max-width: 100%;
+  height: auto !important;
+  max-height: min(42vh, 13.5rem);
+  align-self: stretch;
+}
+
+html.layout-phone .opening-panel {
+  order: 4 !important;
+  width: 100%;
+  max-width: 100%;
+  height: auto !important;
+  max-height: min(40vh, 16rem);
+  align-self: stretch;
+}
+
+html.layout-phone .board-row--no-openings .opening-panel {
+  display: none !important;
+}

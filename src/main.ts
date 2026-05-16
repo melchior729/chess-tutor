@@ -38,6 +38,7 @@ import {
   uciMovesMatch,
 } from "./moveQuality";
 import { bucketForCommittedMove, playBucket, resumeAudioContext } from "./sounds";
+import { initPhoneLayout, isPhoneLayout } from "./phoneLayout";
 import { loadSettings, saveSettings, type AppSettings } from "./settings";
 import { moveToUci, parseInfoPv, scoreForWhite, type ParsedScore } from "./uci";
 
@@ -156,8 +157,22 @@ function canUserMove(): boolean {
   return game.turn() === humanColor;
 }
 
-/** Lock eval bar, movelog, and opening panel to the board column height. */
+function clearSyncedHeights(): void {
+  movelogAsideEl.style.height = "";
+  movelogAsideEl.style.maxHeight = "";
+  evalBarEl.style.height = "";
+  evalBarEl.style.maxHeight = "";
+  openingPanelEl.style.height = "";
+  openingPanelEl.style.maxHeight = "";
+}
+
+/** Lock eval bar, movelog, and opening panel to the board column height (desktop only). */
 function syncLayoutHeights(): void {
+  if (isPhoneLayout()) {
+    clearSyncedHeights();
+    return;
+  }
+
   const h = boardColumnEl.offsetHeight;
   const boardH = boardEl.offsetHeight;
   if (h <= 0 || boardH <= 0) return;
@@ -180,6 +195,20 @@ function syncLayoutHeights(): void {
   } else {
     openingPanelEl.style.height = "";
     openingPanelEl.style.maxHeight = "";
+  }
+}
+
+function setEvalBarFill(whitePct: number, blackPct: number): void {
+  if (isPhoneLayout()) {
+    evalBarWhite.style.width = `${whitePct}%`;
+    evalBarBlack.style.width = `${blackPct}%`;
+    evalBarWhite.style.height = "";
+    evalBarBlack.style.height = "";
+  } else {
+    evalBarWhite.style.height = `${whitePct}%`;
+    evalBarBlack.style.height = `${blackPct}%`;
+    evalBarWhite.style.width = "";
+    evalBarBlack.style.width = "";
   }
 }
 
@@ -906,8 +935,7 @@ function applyEval(raw: ParsedScore): void {
   const blackPct = 100 - whitePct;
   evalLabelEl.textContent = label;
   evalBarEl.setAttribute("aria-label", `Engine evaluation ${label} from White's perspective`);
-  evalBarWhite.style.height = `${whitePct}%`;
-  evalBarBlack.style.height = `${blackPct}%`;
+  setEvalBarFill(whitePct, blackPct);
 }
 
 function maybeRequestEngineMove(): void {
@@ -1080,6 +1108,12 @@ syncSettingsForm();
 syncBoard();
 rerenderMovelog();
 
+initPhoneLayout(() => {
+  syncLayoutHeights();
+  cgApi.redrawAll();
+  if (sessionActive && appSettings.showEvalBar) scheduleEval();
+});
+
 new ResizeObserver(() => {
   syncLayoutHeights();
   cgApi.redrawAll();
@@ -1213,8 +1247,7 @@ engineContinueBtn.addEventListener("click", () => continueToEngineMove());
 
     evalLabelEl.textContent = "—";
     evalBarEl.setAttribute("aria-label", `Engine offline: ${detail}`);
-    evalBarWhite.style.height = "50%";
-    evalBarBlack.style.height = "50%";
+    setEvalBarFill(50, 50);
     startGameBtn.disabled = true;
     toolbarStatusEl.textContent = "Engine offline — cannot play vs Stockfish";
     toolbarStatusEl.title = `${detail}. Use npm run dev or npm run preview (avoid opening index.html as file://).`;
