@@ -9,11 +9,11 @@ import "./style.css";
 
 import { mountChessground, syncChessground } from "./chessgroundSync";
 import {
+  applyDifficultyToEngine,
   createStockfishEngine,
   movetimeMsForDifficulty,
   parseBestMoveUci,
   parseInfoScore,
-  skillLevelForDifficulty,
   StockfishEngine,
 } from "./engine";
 import {
@@ -25,6 +25,13 @@ import {
   uciPrefix,
 } from "./gameTree";
 import { materialCentipawns, renderMaterialStrip } from "./material";
+import { renderExplorerPanel } from "./explorerPanel";
+import {
+  clearSavedLines,
+  listSavedLines,
+  registerForkedLine,
+  syncBranchTip,
+} from "./lineRegistry";
 import { renderMoveLog } from "./moveLogDom";
 import { BOOK_COLOR, BOOK_LABEL } from "./bookMove";
 import { hasWikiArticle } from "./openingWiki";
@@ -117,8 +124,12 @@ const boardRowEl = document.querySelector("#board-row") as HTMLElement;
 const boardColumnEl = document.querySelector(".board-column") as HTMLElement;
 const movelogAsideEl = document.querySelector(".movelog") as HTMLElement;
 const openingPanelEl = document.querySelector("#opening-panel") as HTMLElement;
+const openingContentEl = document.querySelector("#opening-content") as HTMLElement;
+const explorerViewEl = document.querySelector("#explorer-view") as HTMLElement;
+const explorerBodyEl = document.querySelector("#explorer-body") as HTMLElement;
 const openingPanelEls = {
   panel: openingPanelEl,
+  content: openingContentEl,
   name: document.querySelector("#opening-name") as HTMLElement,
   eco: document.querySelector("#opening-eco") as HTMLElement,
   blurb: document.querySelector("#opening-blurb") as HTMLElement,
@@ -138,6 +149,7 @@ function resetTree(): void {
   branchPath = [];
   cursorDepth = 0;
   game = new Chess();
+  clearSavedLines();
 }
 
 function isAtTip(): boolean {
@@ -153,6 +165,8 @@ function canUserMove(): boolean {
   if (engineThinking || awaitingEngineMove) return false;
   if (promotionModal.hasAttribute("data-open")) return false;
   if (awaitingEngineConfirm && isAtTip()) return true;
+  /** Rewound: play either side to fork a new branch from this ply. */
+  if (!isAtTip()) return true;
   return game.turn() === humanColor;
 }
 
@@ -188,13 +202,81 @@ function syncLayoutHeights(): void {
     evalBarEl.style.maxHeight = "";
   }
 
-  if (appSettings.showOpenings) {
+  if (!openingPanelEl.hidden) {
     openingPanelEl.style.height = px;
     openingPanelEl.style.maxHeight = px;
   } else {
     openingPanelEl.style.height = "";
     openingPanelEl.style.maxHeight = "";
   }
+}
+
+function activateExplorerLine(nodes: MoveNode[]): void {
+  if (!sessionActive) return;
+  branchPath = nodes.slice();
+  cursorDepth = branchPath.length;
+  cancelActiveEngineSearch();
+  clearEngineConfirm();
+  rebuildGame();
+  afterPlyNavigation();
+}
+
+function sidePanelSlotVisible(): boolean {
+  return sessionActive || appSettings.showOpenings;
+}
+
+type SidePanelMode = "opening" | "explorer" | "none";
+
+function setSidePanelMode(mode: SidePanelMode): void {
+  openingContentEl.hidden = mode !== "opening";
+  explorerViewEl.hidden = mode !== "explorer";
+}
+
+function renderExplorerContent(): void {
+  renderExplorerPanel(explorerBodyEl, listSavedLines(treeRoot), branchPath, activateExplorerLine);
+}
+
+function syncSidePanel(): void {
+  if (!sidePanelSlotVisible()) {
+    openingPanelEl.hidden = true;
+    setSidePanelMode("none");
+    explorerBodyEl.replaceChildren();
+    return;
+  }
+
+  openingPanelEl.hidden = false;
+
+  if (!appSettings.showOpenings) {
+    if (sessionActive) {
+      setSidePanelMode("explorer");
+      renderExplorerContent();
+    } else {
+      setSidePanelMode("none");
+      explorerBodyEl.replaceChildren();
+    }
+    syncLayoutHeights();
+    return;
+  }
+
+  refreshOpeningPanel(
+    openingPanelEls,
+    uciPrefix(branchPath, cursorDepth),
+    sansAtCursor(),
+    true,
+    onOpeningLayout,
+    (hasOpening) => {
+      if (hasOpening) {
+        setSidePanelMode("opening");
+      } else if (sessionActive) {
+        setSidePanelMode("explorer");
+        renderExplorerContent();
+      } else {
+        setSidePanelMode("none");
+        explorerBodyEl.replaceChildren();
+      }
+      syncLayoutHeights();
+    },
+  );
 }
 
 function setEvalBarFill(whitePct: number, blackPct: number): void {
@@ -233,11 +315,12 @@ function syncSettingsForm(): void {
   settingShowOpenings.checked = appSettings.showOpenings;
 }
 
-function applyOpeningsLayout(): void {
-  boardRowEl.classList.toggle("board-row--openings", appSettings.showOpenings);
-  boardRowEl.classList.toggle("board-row--no-openings", !appSettings.showOpenings);
+function applySidePanelLayout(): void {
+  const visible = sidePanelSlotVisible();
+  boardRowEl.classList.toggle("board-row--side-panel", visible);
+  boardRowEl.classList.toggle("board-row--no-side-panel", !visible);
   syncLayoutHeights();
-  syncOpeningPanel();
+  syncSidePanel();
   cgApi.redrawAll();
 }
 
@@ -251,7 +334,7 @@ function readSettingsForm(): void {
   };
   saveSettings(appSettings);
   applyEvalBarVisibility();
-  applyOpeningsLayout();
+  applySidePanelLayout();
   if (!canShowBestMoveHint()) clearHintArrow();
   updateEngineToolbar();
   syncBoard();
@@ -354,11 +437,8 @@ function continueToEngineMove(): void {
 }
 
 function popPlies(count: number, opts?: { keepConfirm?: boolean }): void {
-  cancelPendingEnginePlay();
+  cancelActiveEngineSearch();
   if (!opts?.keepConfirm) clearEngineConfirm();
-  evalToken++;
-  window.clearTimeout(debounceTimer);
-  engine?.stop();
 
   branchPath = branchPath.slice(0, Math.max(0, branchPath.length - count));
   cursorDepth = branchPath.length;
@@ -368,6 +448,7 @@ function popPlies(count: number, opts?: { keepConfirm?: boolean }): void {
   refreshEvalForView();
   scheduleBookLabels();
   updateEngineToolbar();
+  syncSidePanel();
 }
 
 /** Undo one ply while staying in confirm/setup mode (both sides movable). */
@@ -431,6 +512,7 @@ function showGameOver(): void {
   engineThinking = false;
   awaitingEngineMove = false;
   syncBoard();
+  syncSidePanel();
 }
 
 function hideGameOver(): void {
@@ -445,6 +527,7 @@ function showSetup(): void {
   engineThinking = false;
   awaitingEngineMove = false;
   engine?.stop();
+  applySidePanelLayout();
   syncBoard();
 }
 
@@ -465,7 +548,8 @@ function startSession(color: "w" | "b", level: number): void {
   resetTree();
   boardOrientation = color === "w" ? "white" : "black";
 
-  engine?.setSkillLevel(skillLevelForDifficulty(difficulty));
+  if (engine) applyDifficultyToEngine(engine, difficulty);
+  applySidePanelLayout();
   syncBoard();
   rerenderMovelog();
   if (game.turn() !== humanColor) offerEngineTurn();
@@ -473,7 +557,7 @@ function startSession(color: "w" | "b", level: number): void {
 }
 
 function rerenderMovelog(): void {
-  renderMoveLog(moveLogEl, branchPath, cursorDepth, handleSelectMove);
+  renderMoveLog(moveLogEl, treeRoot, branchPath, cursorDepth, handleSelectMove);
 }
 
 function handleSelectMove(node: MoveNode): void {
@@ -556,16 +640,6 @@ function onOpeningLayout(): void {
   scheduleBookLabels();
 }
 
-function syncOpeningPanel(): void {
-  refreshOpeningPanel(
-    openingPanelEls,
-    uciPrefix(branchPath, cursorDepth),
-    sansAtCursor(),
-    appSettings.showOpenings,
-    onOpeningLayout,
-  );
-}
-
 function syncBoard(): void {
   syncChessground(game, cgApi, boardOrientation, {
     inputsEnabled: boardInputsEnabled(),
@@ -576,18 +650,24 @@ function syncBoard(): void {
   });
   updateMaterialStrips();
   updateEngineToolbar();
-  syncOpeningPanel();
+  syncSidePanel();
   syncLayoutHeights();
 }
 
 function commitPlayedMove(move: Move): void {
-  if (cursorDepth < branchPath.length) branchPath = branchPath.slice(0, cursorDepth);
+  const forked = cursorDepth < branchPath.length;
+  if (forked) {
+    registerForkedLine(branchPath);
+    branchPath = branchPath.slice(0, cursorDepth);
+  }
 
   const parent = cursorDepth === 0 ? treeRoot : branchPath[cursorDepth - 1]!;
   const node = getOrCreateChild(parent, move.san, moveToUci(move), move.color);
 
   branchPath = [...branchPath.slice(0, cursorDepth), node];
   cursorDepth = branchPath.length;
+
+  if (!forked) syncBranchTip(branchPath);
 
   rebuildGame();
   playBucket(bucketForCommittedMove(move, game));
@@ -600,6 +680,7 @@ function commitPlayedMove(move: Move): void {
     classifyQueue.push({ node, beforeMoves: uciPrefix(branchPath, branchPath.length - 1) });
     void drainClassifyQueue();
   }
+  syncSidePanel();
   afterMoveCommitted();
 }
 
@@ -809,6 +890,16 @@ function cancelPendingEnginePlay(): void {
   clearHintArrow();
 }
 
+/** Drop in-flight engine moves/searches after the viewed ply changes (movelog, arrows). */
+function cancelActiveEngineSearch(): void {
+  cancelPendingEnginePlay();
+  engineThinking = false;
+  awaitingEngineMove = false;
+  evalToken++;
+  window.clearTimeout(debounceTimer);
+  engine?.stop();
+}
+
 function flushResumeEnginePlay(): void {
   if (!resumeEnginePlay || !engine) return;
   clearResumeFallbackTimer();
@@ -836,12 +927,14 @@ function refreshEvalForView(): void {
 }
 
 function afterPlyNavigation(): void {
+  cancelActiveEngineSearch();
   if (!isAtTip()) clearEngineConfirm();
   if (!canShowBestMoveHint()) clearHintArrow();
   updateEngineToolbar();
   syncBoard();
   rerenderMovelog();
   scheduleBookLabels();
+  syncSidePanel();
   if (!sessionActive || game.isGameOver()) return;
   if (isAtTip()) {
     if (game.turn() !== humanColor) offerEngineTurn();
@@ -1016,6 +1109,8 @@ function handleUserMove(orig: Square, dest: Square): void {
     syncBoard();
     return;
   }
+  cancelActiveEngineSearch();
+  clearEngineConfirm();
 
   const opts = game.moves({ verbose: true, square: orig }).filter((m) => m.to === dest);
   if (!opts.length) {
@@ -1046,7 +1141,7 @@ function handleUserMove(orig: Square, dest: Square): void {
 }
 
 applyEvalBarVisibility();
-applyOpeningsLayout();
+applySidePanelLayout();
 syncSettingsForm();
 syncBoard();
 rerenderMovelog();

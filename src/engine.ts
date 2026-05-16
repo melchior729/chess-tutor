@@ -72,10 +72,33 @@ export async function createStockfishEngine(): Promise<StockfishEngine> {
 
 export type EngineLineHandler = (line: string) => void;
 
-/** Map UI difficulty 1–10 to Stockfish Skill Level 0–20. */
-export function skillLevelForDifficulty(difficulty: number): number {
-  const d = Math.max(1, Math.min(10, Math.round(difficulty)));
-  return Math.round(((d - 1) / 9) * 20);
+/** UCI_Elo targets for UI difficulty 1–9 (level 10 = full strength). */
+const UCI_ELO_BY_DIFFICULTY: Record<number, number> = {
+  1: 1320,
+  2: 1370,
+  3: 1420,
+  4: 1500,
+  5: 1600,
+  6: 1700,
+  7: 1850,
+  8: 2000,
+  9: 2200,
+};
+
+export function clampDifficulty(difficulty: number): number {
+  return Math.max(1, Math.min(10, Math.round(difficulty)));
+}
+
+/** Apply UCI strength options for UI difficulty 1–10. */
+export function applyDifficultyToEngine(engine: StockfishEngine, difficulty: number): void {
+  const d = clampDifficulty(difficulty);
+  if (d === 10) {
+    engine.setLimitStrength(false);
+    engine.setSkillLevel(20);
+    return;
+  }
+  engine.setLimitStrength(true);
+  engine.setUciElo(UCI_ELO_BY_DIFFICULTY[d]!);
 }
 
 export function movetimeMsForDifficulty(difficulty: number): number {
@@ -131,6 +154,14 @@ export class StockfishEngine {
 
   setSkillLevel(level: number): void {
     this.post(`setoption name Skill Level value ${level}`);
+  }
+
+  setLimitStrength(enabled: boolean): void {
+    this.post(`setoption name UCI_LimitStrength value ${enabled}`);
+  }
+
+  setUciElo(elo: number): void {
+    this.post(`setoption name UCI_Elo value ${elo}`);
   }
 
   setPosition(moves: string[]): void {

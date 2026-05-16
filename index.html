@@ -23,7 +23,7 @@
         </div>
       </header>
       <div class="layout">
-        <div id="board-row" class="board-row board-row--openings">
+        <div id="board-row" class="board-row board-row--side-panel">
           <div class="board-column">
             <div id="material-strip-white" class="material-strip material-strip--white"></div>
             <div id="board" class="board-wrap"></div>
@@ -38,11 +38,17 @@
             <div class="movelog__title">Moves</div>
             <div id="move-log-body" class="movelog__body"></div>
           </aside>
-          <aside id="opening-panel" class="opening-panel opening-panel--empty" aria-live="polite">
-            <div class="opening-panel__eco" id="opening-eco"></div>
-            <h2 class="opening-panel__name" id="opening-name"></h2>
-            <p class="opening-panel__blurb" id="opening-blurb"></p>
-            <div class="opening-panel__wiki" id="opening-wiki"></div>
+          <aside id="opening-panel" class="opening-panel" hidden aria-live="polite">
+            <section id="opening-content" class="side-panel__view side-panel__view--opening">
+              <div class="opening-panel__eco" id="opening-eco"></div>
+              <h2 class="opening-panel__name" id="opening-name"></h2>
+              <p class="opening-panel__blurb" id="opening-blurb"></p>
+              <div class="opening-panel__wiki" id="opening-wiki"></div>
+            </section>
+            <section id="explorer-view" class="side-panel__view side-panel__view--explorer" hidden>
+              <div class="side-panel__heading">Explorer</div>
+              <div id="explorer-body" class="explorer-panel__body"></div>
+            </section>
           </aside>
         </div>
       </div>
@@ -117,7 +123,8 @@
             <span class="settings-toggle__text">
               <strong>Show opening descriptions</strong>
               <span class="settings-toggle__hint"
-                >Desktop: left of the board. Phone: below the move list. Off: hidden.</span
+                >When on, opening theory fills the left panel when available; otherwise the line
+                explorer is shown. When off, the explorer is always shown during a game.</span
               >
             </span>
           </label>

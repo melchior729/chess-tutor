@@ -3,6 +3,7 @@ import { getOpenings, lookupOpening } from "./openingsData";
 
 export type OpeningPanelEls = {
   panel: HTMLElement;
+  content: HTMLElement;
   name: HTMLElement;
   eco: HTMLElement;
   blurb: HTMLElement;
@@ -11,10 +12,6 @@ export type OpeningPanelEls = {
 
 let wikiToken = 0;
 
-function setPanelEmpty(els: OpeningPanelEls, empty: boolean): void {
-  els.panel.classList.toggle("opening-panel--empty", empty);
-}
-
 function clearPanelContent(els: OpeningPanelEls): void {
   els.eco.textContent = "";
   els.name.textContent = "";
@@ -22,27 +19,35 @@ function clearPanelContent(els: OpeningPanelEls): void {
   els.blurb.hidden = true;
   els.wiki.innerHTML = "";
   els.wiki.classList.remove("opening-panel__wiki--loading");
-  setPanelEmpty(els, true);
 }
 
+/**
+ * Load opening wiki content when enabled. Calls `onResolved(true)` when there is
+ * something to show (wiki HTML), otherwise `onResolved(false)`.
+ */
 export function refreshOpeningPanel(
   els: OpeningPanelEls,
   uciMoves: string[],
   sans: string[],
-  showOpenings: boolean,
+  enabled: boolean,
   onLayout?: () => void,
+  onResolved?: (hasContent: boolean) => void,
 ): void {
   const token = ++wikiToken;
-
-  if (!showOpenings) {
-    clearPanelContent(els);
+  const finish = (hasContent: boolean) => {
     onLayout?.();
+    onResolved?.(hasContent);
+  };
+
+  if (!enabled) {
+    clearPanelContent(els);
+    finish(false);
     return;
   }
 
   if (uciMoves.length === 0) {
     clearPanelContent(els);
-    onLayout?.();
+    finish(false);
     return;
   }
 
@@ -54,7 +59,7 @@ export function refreshOpeningPanel(
 
     if (!html) {
       clearPanelContent(els);
-      onLayout?.();
+      finish(false);
       return;
     }
 
@@ -64,13 +69,12 @@ export function refreshOpeningPanel(
     }
 
     els.wiki.innerHTML = html;
-    setPanelEmpty(els, false);
     const firstP = els.wiki.querySelector("p");
     if (firstP?.textContent) {
       els.blurb.textContent = firstP.textContent.trim();
       els.blurb.hidden = false;
       firstP.remove();
     }
-    requestAnimationFrame(() => onLayout?.());
+    requestAnimationFrame(() => finish(true));
   });
 }
