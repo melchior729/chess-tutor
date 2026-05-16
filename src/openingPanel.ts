@@ -11,6 +11,10 @@ export type OpeningPanelEls = {
 
 let wikiToken = 0;
 
+function setPanelEmpty(els: OpeningPanelEls, empty: boolean): void {
+  els.panel.classList.toggle("opening-panel--empty", empty);
+}
+
 function clearPanelContent(els: OpeningPanelEls): void {
   els.eco.textContent = "";
   els.name.textContent = "";
@@ -18,6 +22,7 @@ function clearPanelContent(els: OpeningPanelEls): void {
   els.blurb.hidden = true;
   els.wiki.innerHTML = "";
   els.wiki.classList.remove("opening-panel__wiki--loading");
+  setPanelEmpty(els, true);
 }
 
 export function refreshOpeningPanel(
@@ -59,6 +64,7 @@ export function refreshOpeningPanel(
     }
 
     els.wiki.innerHTML = html;
+    setPanelEmpty(els, false);
     const firstP = els.wiki.querySelector("p");
     if (firstP?.textContent) {
       els.blurb.textContent = firstP.textContent.trim();

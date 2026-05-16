@@ -21,17 +21,9 @@
             Continue <kbd class="toolbar__kbd">C</kbd>
           </button>
         </div>
-        <span id="toolbar-status" class="toolbar__hint"
-          >↑ start · ↓ tip · ←/→ ply · click log to jump</span>
       </header>
       <div class="layout">
         <div id="board-row" class="board-row board-row--openings">
-          <aside id="opening-panel" class="opening-panel" aria-live="polite">
-            <div class="opening-panel__eco" id="opening-eco"></div>
-            <h2 class="opening-panel__name" id="opening-name"></h2>
-            <p class="opening-panel__blurb" id="opening-blurb"></p>
-            <div class="opening-panel__wiki" id="opening-wiki"></div>
-          </aside>
           <div class="board-column">
             <div id="material-strip-white" class="material-strip material-strip--white"></div>
             <div id="board" class="board-wrap"></div>
@@ -45,6 +37,12 @@
           <aside class="movelog" aria-label="Move log">
             <div class="movelog__title">Moves</div>
             <div id="move-log-body" class="movelog__body"></div>
+          </aside>
+          <aside id="opening-panel" class="opening-panel opening-panel--empty" aria-live="polite">
+            <div class="opening-panel__eco" id="opening-eco"></div>
+            <h2 class="opening-panel__name" id="opening-name"></h2>
+            <p class="opening-panel__blurb" id="opening-blurb"></p>
+            <div class="opening-panel__wiki" id="opening-wiki"></div>
           </aside>
         </div>
       </div>

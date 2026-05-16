@@ -95,7 +95,6 @@ const gameoverModal = document.querySelector("#gameover-modal") as HTMLElement;
 const gameoverMessageEl = document.querySelector("#gameover-message") as HTMLElement;
 const difficultyInput = document.querySelector("#difficulty") as HTMLInputElement;
 const difficultyValueEl = document.querySelector("#difficulty-value") as HTMLElement;
-const toolbarStatusEl = document.querySelector("#toolbar-status") as HTMLElement;
 const flipBoardBtn = document.querySelector("#flip-board") as HTMLButtonElement;
 const startGameBtn = document.querySelector("#start-game") as HTMLButtonElement;
 const playAgainBtn = document.querySelector("#play-again") as HTMLButtonElement;
@@ -333,7 +332,6 @@ function offerEngineTurn(): void {
     awaitingEngineConfirm = true;
     scheduleEval();
     updateEngineToolbar();
-    updateToolbarStatus();
     syncBoard();
     return;
   }
@@ -370,7 +368,6 @@ function popPlies(count: number, opts?: { keepConfirm?: boolean }): void {
   refreshEvalForView();
   scheduleBookLabels();
   updateEngineToolbar();
-  updateToolbarStatus();
 }
 
 /** Undo one ply while staying in confirm/setup mode (both sides movable). */
@@ -383,7 +380,6 @@ function undoDuringConfirm(): void {
     awaitingEngineConfirm = true;
     scheduleEval();
     updateEngineToolbar();
-    updateToolbarStatus();
     syncBoard();
   }
 }
@@ -415,51 +411,6 @@ function updateMaterialStrips(): void {
   renderMaterialStrip(materialStripBlackEl, cp, "b");
 }
 
-function updateToolbarStatus(): void {
-  if (!sessionActive) {
-    toolbarStatusEl.textContent = "Choose settings to start";
-    return;
-  }
-  if (game.isGameOver()) {
-    toolbarStatusEl.textContent = "Game over";
-    return;
-  }
-  if (engineThinking || awaitingEngineMove) {
-    toolbarStatusEl.textContent = "Stockfish is thinking…";
-    return;
-  }
-  if (awaitingEngineConfirm) {
-    const enginePlaysOnContinue = game.turn() !== humanColor;
-    const continueHint = enginePlaysOnContinue
-      ? "C continue (Stockfish moves)"
-      : "C continue (your turn)";
-    toolbarStatusEl.textContent = `Setup both sides · ${continueHint} · D undo · S hint`;
-    return;
-  }
-  if (game.turn() === humanColor && isAtTip()) {
-    const undoHint = canUndoHumanEnginePair() ? " · D undo" : "";
-    if (appSettings.showBestMoveOnReview) {
-      toolbarStatusEl.textContent = `Your turn · S best move${undoHint}`;
-    } else {
-      toolbarStatusEl.textContent = `Your turn${undoHint}`;
-    }
-    return;
-  }
-  if (game.turn() === humanColor && appSettings.showBestMoveOnReview && !isAtTip()) {
-    toolbarStatusEl.textContent = "Review · S best move · ←/→ ply · ↓ tip";
-    return;
-  }
-  if (!isAtTip()) {
-    if (game.turn() === humanColor) {
-      toolbarStatusEl.textContent = "Branch point — your move (creates a variation)";
-      return;
-    }
-    toolbarStatusEl.textContent = "←/→ review · ↓ jump to latest move";
-    return;
-  }
-  toolbarStatusEl.textContent = "Waiting for Stockfish…";
-}
-
 function gameResultMessage(): string {
   if (game.isCheckmate()) {
     return game.turn() !== humanColor ? "Checkmate — you win!" : "Checkmate — Stockfish wins.";
@@ -479,7 +430,6 @@ function showGameOver(): void {
   engine?.stop();
   engineThinking = false;
   awaitingEngineMove = false;
-  updateToolbarStatus();
   syncBoard();
 }
 
@@ -495,7 +445,6 @@ function showSetup(): void {
   engineThinking = false;
   awaitingEngineMove = false;
   engine?.stop();
-  updateToolbarStatus();
   syncBoard();
 }
 
@@ -519,8 +468,6 @@ function startSession(color: "w" | "b", level: number): void {
   engine?.setSkillLevel(skillLevelForDifficulty(difficulty));
   syncBoard();
   rerenderMovelog();
-  updateToolbarStatus();
-
   if (game.turn() !== humanColor) offerEngineTurn();
   else scheduleEval();
 }
@@ -541,7 +488,6 @@ function handleSelectMove(node: MoveNode): void {
   }
   rebuildGame();
   if (!isAtTip()) clearEngineConfirm();
-  updateToolbarStatus();
   afterPlyNavigation();
 }
 
@@ -629,7 +575,6 @@ function syncBoard(): void {
     autoShapes: boardAutoShapes(),
   });
   updateMaterialStrips();
-  updateToolbarStatus();
   updateEngineToolbar();
   syncOpeningPanel();
   syncLayoutHeights();
@@ -667,7 +612,6 @@ function afterMoveCommitted(): void {
   if (awaitingEngineConfirm) {
     scheduleEval();
     updateEngineToolbar();
-    updateToolbarStatus();
     syncBoard();
     return;
   }
@@ -953,7 +897,6 @@ function requestEngineMove(): void {
   engineThinking = true;
   awaitingEngineMove = false;
   evalToken++;
-  updateToolbarStatus();
   syncBoard();
 
   const moves = buildUciForEngine();
@@ -1238,7 +1181,6 @@ engineContinueBtn.addEventListener("click", () => continueToEngineMove());
     engine.setLineHandler(onEngineLine);
     await engine.waitReady();
     applyEvalBarVisibility();
-    updateToolbarStatus();
     if (appSettings.showEvalBar) scheduleEval();
     maybeRequestEngineMove();
   } catch (err) {
@@ -1249,7 +1191,6 @@ engineContinueBtn.addEventListener("click", () => continueToEngineMove());
     evalBarEl.setAttribute("aria-label", `Engine offline: ${detail}`);
     setEvalBarFill(50, 50);
     startGameBtn.disabled = true;
-    toolbarStatusEl.textContent = "Engine offline — cannot play vs Stockfish";
-    toolbarStatusEl.title = `${detail}. Use npm run dev or npm run preview (avoid opening index.html as file://).`;
+    startGameBtn.title = `Engine offline: ${detail}. Use npm run dev or npm run preview (avoid opening index.html as file://).`;
   }
 })();
