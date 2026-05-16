@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chess tutor</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="toolbar">
+        <div class="toolbar__actions">
+          <button type="button" id="flip-board" class="toolbar__btn">Flip board</button>
+          <button type="button" id="open-settings" class="toolbar__btn">Settings</button>
+          <button type="button" id="engine-hint" class="toolbar__btn toolbar__btn--hint" hidden>
+            Your best <kbd class="toolbar__kbd">S</kbd>
+          </button>
+          <button type="button" id="engine-undo" class="toolbar__btn toolbar__btn--undo" hidden>
+            Undo <kbd class="toolbar__kbd">D</kbd>
+          </button>
+          <button type="button" id="engine-continue" class="toolbar__btn toolbar__btn--continue" hidden>
+            Continue <kbd class="toolbar__kbd">C</kbd>
+          </button>
+        </div>
+        <span id="toolbar-status" class="toolbar__hint"
+          >↑ start · ↓ tip · ←/→ ply · click log to jump</span>
+      </header>
+      <div class="layout">
+        <div id="board-row" class="board-row board-row--openings">
+          <aside id="opening-panel" class="opening-panel" aria-live="polite">
+            <div class="opening-panel__eco" id="opening-eco"></div>
+            <h2 class="opening-panel__name" id="opening-name"></h2>
+            <p class="opening-panel__blurb" id="opening-blurb"></p>
+            <div class="opening-panel__wiki" id="opening-wiki"></div>
+          </aside>
+          <div class="board-column">
+            <div id="material-strip-white" class="material-strip material-strip--white"></div>
+            <div id="board" class="board-wrap"></div>
+            <div id="material-strip-black" class="material-strip material-strip--black"></div>
+          </div>
+          <div id="eval-bar" class="eval-bar" role="img" aria-live="polite" aria-label="Engine evaluation">
+            <div id="eval-bar-fill" class="eval-bar__fill eval-bar__fill--white"></div>
+            <div id="eval-bar-fill-black" class="eval-bar__fill eval-bar__fill--black"></div>
+            <span id="eval-bar-label" class="eval-bar__label">…</span>
+          </div>
+          <aside class="movelog" aria-label="Move log">
+            <div class="movelog__title">Moves</div>
+            <div id="move-log-body" class="movelog__body"></div>
+          </aside>
+        </div>
+      </div>
+    <div id="setup-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="setup-title">
+      <div class="modal__panel">
+        <h1 id="setup-title" class="modal__title">Play vs Stockfish</h1>
+        <fieldset class="modal__fieldset">
+          <legend class="modal__legend">Your color</legend>
+          <label class="modal__radio">
+            <input type="radio" name="human-color" value="w" checked />
+            White
+          </label>
+          <label class="modal__radio">
+            <input type="radio" name="human-color" value="b" />
+            Black
+          </label>
+        </fieldset>
+        <label class="modal__range">
+          <span class="modal__range-label"
+            >Difficulty <strong id="difficulty-value">5</strong>/10</span
+          >
+          <input type="range" id="difficulty" min="1" max="10" value="5" />
+        </label>
+        <button type="button" id="start-game" class="modal__btn modal__btn--primary">Start game</button>
+      </div>
+    </div>
+    <div id="gameover-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="gameover-title">
+      <div class="modal__panel">
+        <h2 id="gameover-title" class="modal__title">Game over</h2>
+        <p id="gameover-message" class="modal__message"></p>
+        <div class="modal__actions">
+          <button type="button" id="play-again" class="modal__btn modal__btn--primary">Play again</button>
+          <button type="button" id="change-settings" class="modal__btn">Change settings</button>
+        </div>
+      </div>
+    </div>
+    <div id="settings-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal__panel modal__panel--wide">
+        <h2 id="settings-title" class="modal__title">Settings</h2>
+        <div class="settings-list">
+          <label class="settings-toggle">
+            <input type="checkbox" id="setting-show-eval-bar" checked />
+            <span class="settings-toggle__text">
+              <strong>Show evaluation bar</strong>
+              <span class="settings-toggle__hint">Display the engine eval strip beside the board.</span>
+            </span>
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="setting-confirm-engine" />
+            <span class="settings-toggle__text">
+              <strong>Confirm before engine move</strong>
+              <span class="settings-toggle__hint"
+                >After your move, review the updated eval, then press Continue for Stockfish to
+                move.</span
+              >
+            </span>
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="setting-show-best-move-review" checked />
+            <span class="settings-toggle__text">
+              <strong>Best move when reviewing</strong>
+              <span class="settings-toggle__hint"
+                >While stepping through the game, show the best-move button (S) whenever it
+                would be your turn in that position.</span
+              >
+            </span>
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="setting-show-openings" checked />
+            <span class="settings-toggle__text">
+              <strong>Show opening descriptions</strong>
+              <span class="settings-toggle__hint"
+                >Panel on the left of the board (Opening · Board · Eval · Moves). Off: Eval · Board ·
+                Moves.</span
+              >
+            </span>
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="setting-show-move-quality" checked />
+            <span class="settings-toggle__text">
+              <strong>Show move quality</strong>
+              <span class="settings-toggle__hint"
+                >After your moves, label the destination square (★ best, brilliant, inaccuracy,
+                mistake, etc.) using engine analysis.</span
+              >
+            </span>
+          </label>
+        </div>
+        <button type="button" id="close-settings" class="modal__btn modal__btn--primary">Done</button>
+      </div>
+    </div>
+    <div id="promotion-modal" class="promotion-modal" hidden>
+      <div class="promotion-modal__choices">
+        <button type="button" data-piece="q" title="Queen">♕</button>
+        <button type="button" data-piece="n" title="Knight">♞</button>
+        <button type="button" data-piece="r" title="Rook">♜</button>
+        <button type="button" data-piece="b" title="Bishop">♝</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

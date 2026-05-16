@@ -1,0 +1,21 @@
+{
+  "name": "chess-tutor",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build:openings": "node scripts/build-openings.mjs",
+    "dev": "npm run build:openings && vite",
+    "build": "mkdir -p public && cp -f node_modules/stockfish/src/stockfish-nnue-16-single.js node_modules/stockfish/src/stockfish-nnue-16-single.wasm public/ && npm run build:openings && tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "chessground": "^9.0.0",
+    "stockfish": "^16.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3",
+    "vite": "^6.3.5"
+  }
+}
